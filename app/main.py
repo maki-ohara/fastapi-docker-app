@@ -1,45 +1,28 @@
-from typing import Union
-from fastapi import FastAPI
-from pydantic import BaseModel
+# app/main.py
 
-import uvicorn
+import os
+import logging
+from fastapi import FastAPI
+
+from logger import setup_logger
+from routers import items, predict  # ← 分けたルーターをインポート
 
 app = FastAPI()
 
-# POSTで受け取るデータの形を定義
-class Item(BaseModel):
-    name: str
-    price: float
-    category: str  # ← 追加
-
-@app.post("/predict")
-def predict(item: Item):
-    tax_price = item.price * 1.1
-
-    # category に応じた処理（例：prefix 変えるだけ）
-    category = item.category.lower()
-
-    if category == "food":
-        prefix = "[FOOD]"
-    elif category == "book":
-        prefix = "[BOOK]"
-    elif category == "clothing":
-        prefix = "[CLOTHING]"
-    else:
-        prefix = "[OTHER]"
-
-    return {
-        "message": f"{prefix} {item.name} costs {item.price} yen.",
-        "tax_included": f"{tax_price:.0f} yen"
-    }
+# ログ設定
+logger = setup_logger()
+logger.info("FastAPI アプリ起動完了")
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    env = os.getenv("APP_ENV", "default")
+    debug = os.getenv("DEBUG", "false")
+    return {
+        "Hello": "World (復活！)",
+        "env": env,
+        "debug_mode": debug
+    }
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
-
-if __name__ == "__main__":
-    uvicorn.run(app, port=8000, host="0.0.0.0")
+# 分離したルーターを登録
+app.include_router(items.router)
+app.include_router(predict.router)
